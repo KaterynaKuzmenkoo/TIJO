@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Analiza SOLID</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+    <style>
+        body {
+            background: linear-gradient(to right, #ca4545, #bd6ad6);
+            color: white;
+            min-height: 100vh;
+        }
+
+
+        .code-box, .response-box {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #ffffff;
+            font-family: monospace;
+            animation: slideIn 1s ease-out;
+        }
+
+        h1, h4, label {
+            color: white;
+        }
+
+        .form-control {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            animation: slideIn 1s ease-out;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .form-control:focus {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white;
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: none;
+}
+
+        .btn-primary {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    border: none;
+    padding: 0.8rem 2rem;
+    font-size: 1.25rem;
+    font-weight: bold;
+    border-radius: 50px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #ff4b2b, #ff416c);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+
+        #response {
+            animation: fadeIn 1.2s ease-in;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-5" style="max-width: 1000px; margin: auto;">
+
+    <h1 class="mb-4 text-center">🧠 Analiza kodu pod kątem zasad SOLID</h1>
+
+    <form id="analyze-form" class="mb-4">
+        <div class="mb-3">
+            <label for="code" class="form-label">💻 Wklej kod (lub wgraj plik niżej):</label>
+            <textarea id="code" class="form-control" rows="10" placeholder="Wklej tutaj kod..."></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="file" class="form-label">📂 Wgraj plik z kodem:</label>
+            <input type="file" id="file" class="form-control" accept=".py,.js,.java,.cpp,.ts,.cs,.rb,.php,.go,.html,.css,.json,.xml,.txt">
+        </div>
+        <div class="mb-3">
+            <label for="prompt" class="form-label">📝 Dodatkowy komentarz (opcjonalny):</label>
+            <input type="text" id="prompt" class="form-control" placeholder="np. napisz odpowiedź w stylu przyjaznym dla początkujących...">
+        </div>
+        <div class="text-end">
+    <button type="submit" id="submit-btn" class="btn btn-primary">🚀 Analizuj</button>
+</div>
+
+    </form>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <h4>👁 Twój kod:</h4>
+            <div id="original-code" class="code-box"></div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <h4>📋 Wynik analizy:
+            <i class="bi bi-search fs-5 text-light" role="button" data-bs-toggle="modal" data-bs-target="#responseModal" style="cursor: pointer; margin-left: 250px;"></i>
+            </h4>
+            <div id="response" class="response-box"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" style="max-width: 1000px;">
+   <div class="modal-content" style="background-color: #f7e8ff; color: #1a1a1a;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="responseModalLabel">📋 Szczegóły analizy</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body" id="modal-content-response" style="max-height: 600px; overflow-y: auto;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+    document.getElementById("analyze-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const fileInput = document.getElementById("file");
+        const textCode = document.getElementById("code").value.trim();
+        const prompt = document.getElementById("prompt").value;
+        let finalCode = textCode;
+
+        if (!finalCode && fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = async function () {
+                finalCode = reader.result;
+                document.getElementById("original-code").textContent = finalCode;
+                await sendCode(finalCode, prompt);
+            };
+            reader.readAsText(file);
+        } else if (finalCode) {
+            document.getElementById("original-code").textContent = finalCode;
+            await sendCode(finalCode, prompt);
+        } else {
+            alert("Wklej kod lub wgraj plik!");
+        }
+    });
+
+    async function sendCode(code, prompt) {
+    const res = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, prompt })
+    });
+
+    const data = await res.json();
+    let output = data.response || data.error;
+
+
+    output = output.replace(/```([\s\S]*?)```/g, (_, codeBlock) => {
+        const encoded = encodeURIComponent(codeBlock);
+        const id = `copy-${Math.random().toString(36).substring(7)}`;
+        return `
+        <div class="position-relative bg-dark text-white rounded p-3 mb-3">
+            <button id="${id}" class="btn btn-sm btn-light position-absolute top-0 end-0 m-2" onclick="copyToClipboard(decodeURIComponent('${encoded}'), '${id}')">📋 Kopiuj</button>
+            <pre class="m-0"><code>${codeBlock.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>
+        </div>`;
+    });
+
+    output = output
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/(?<=^|\n)- /g, '🔹 ')
+        .replace(/\n/g, '<br>');
+
+    document.getElementById("response").innerHTML = output;
+
+
+    document.getElementById("modal-content-response").innerHTML = output;
+}
+
+
+    function copyToClipboard(text, buttonId) {
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById(buttonId);
+        if (btn) {
+            btn.textContent = "✅ Skopiowano pomyślnie!";
+            btn.classList.remove("btn-light");
+            btn.classList.add("btn-success");
+            setTimeout(() => {
+                btn.textContent = "📋 Kopiuj";
+                btn.classList.remove("btn-success");
+                btn.classList.add("btn-light");
+            }, 2500);
+        }
+    });
+}
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
